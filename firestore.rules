@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function admin() {
+      return request.auth != null &&
+        request.auth.token.email in ['normal@dunamis-kids.app', 'emanuel@dunamis-kids.app'];
+    }
+    function master() {
+      return request.auth != null && request.auth.token.email == 'emanuel@dunamis-kids.app';
+    }
+
+    match /inscritos/{id} {
+      // Qualquer pessoa pode se inscrever (criar), mas ninguém consegue ler a lista sem login.
+      allow create: if request.resource.data.keys().hasOnly(
+          ['nome','idade','resp','tel','alergia','presente','presenteEm','como','criadoEm'])
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() > 0 && request.resource.data.nome.size() <= 100
+        && request.resource.data.resp is string
+        && request.resource.data.resp.size() > 0 && request.resource.data.resp.size() <= 100
+        && request.resource.data.tel is string && request.resource.data.tel.size() <= 30
+        && request.resource.data.alergia is string && request.resource.data.alergia.size() <= 300
+        && request.resource.data.idade is number
+        && request.resource.data.idade >= 3 && request.resource.data.idade <= 12
+        && request.resource.data.presente == false;
+
+      // Professores (login) leem a lista e marcam presença.
+      allow read, update: if admin();
+
+      // Só o acesso completo (Emanuel) exclui inscrições.
+      allow delete: if master();
+    }
+  }
+}
